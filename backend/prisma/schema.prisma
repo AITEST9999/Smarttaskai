@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profile management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  avatar    String?
+  
+  // Authentication fields
+  emailVerified DateTime?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  
+  // Preferences
+  timezone    String @default("UTC")
+  dateFormat  String @default("MM/DD/YYYY")
+  theme       String @default("light")
+  
+  // AI interaction preferences
+  aiEnabled           Boolean @default(true)
+  aiNotifications     Boolean @default(true)
+  aiSuggestionLevel   String  @default("medium") // low, medium, high
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks       Task[]
+  chatHistory ChatMessage[]
+  
+  @@map("users")
+}
+
+// Task model for task management
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  
+  // Task properties
+  priority    Priority @default(MEDIUM)
+  status      TaskStatus @default(TODO)
+  dueDate     DateTime?
+  estimatedDuration Int? // in minutes
+  completedAt DateTime?
+  
+  // Organization
+  tags        String[]
+  location    String?
+  
+  // AI-related fields
+  aiGenerated Boolean @default(false)
+  aiPriority  Float?  // AI-calculated priority score
+  aiSuggestions String? // JSON string of AI suggestions
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  parentTaskId String?
+  parentTask   Task?   @relation("TaskSubtasks", fields: [parentTaskId], references: [id])
+  subtasks     Task[]  @relation("TaskSubtasks")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("tasks")
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+// Chat history for AI interactions
+model ChatMessage {
+  id        String   @id @default(cuid())
+  message   String
+  response  String?
+  role      MessageRole
+  
+  // Context
+  context   String?  // JSON string of conversation context
+  taskIds   String[] // Related task IDs
+  
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@map("chat_messages")
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Enums
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+} 
